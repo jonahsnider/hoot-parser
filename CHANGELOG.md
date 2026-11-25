@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.1.0](https://github.com/jonahsnider/hoot-parser/compare/v1.0.0...v1.1.0) (2026-11-25)
+
+
+### Features
+
+* match Owlet TalonFX signals in C21 logs ([db323b0](https://github.com/jonahsnider/hoot-parser/commit/db323b023b5468cae03bbe820ac1da9deaaca214))
+
+
+### Performance Improvements
+
+* speed up CAN signal decoding ([4a48615](https://github.com/jonahsnider/hoot-parser/commit/4a48615a5623c09e266fe1f90b7aab9f971929c6))
+
 ## 1.0.0 (2026-11-25)
 
 
