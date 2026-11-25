@@ -20,7 +20,8 @@ const codes = [
 ];
 
 export const hootEndOfStream = 256;
-const prefixes = new Uint16Array(1 << 11);
+const maxCodeLength = 11;
+const prefixes = new Uint16Array(1 << maxCodeLength);
 for (const [symbol, code] of codes.entries()) {
 	let prefix = 0;
 	let length = 0;
@@ -36,11 +37,17 @@ for (const [symbol, code] of codes.entries()) {
 /** Reads one Huffman symbol at a time without inflating the whole file into memory */
 export class HootBitReader {
 	private readonly bytes: Uint8Array;
-	bitOffset: number;
+	private byteOffset: number;
+	private bits = 0;
+	private buffered = 0;
 
 	constructor(bytes: Uint8Array, offset: number) {
 		this.bytes = bytes;
-		this.bitOffset = offset * 8;
+		this.byteOffset = offset;
+	}
+
+	get bitOffset(): number {
+		return this.byteOffset * 8 - this.buffered;
 	}
 
 	get remainingBits(): number {
@@ -49,16 +56,29 @@ export class HootBitReader {
 
 	/** Read a byte, the end-of-stream symbol, or -1 for truncated input */
 	read(): number {
-		const i = Math.floor(this.bitOffset / 8);
-		const shift = this.bitOffset & 7;
-		// The lookahead can extend past EOF, but the matching code itself must fit.
-		const bits = (this.bytes[i]! | (this.bytes[i + 1]! << 8) | (this.bytes[i + 2]! << 16)) >>> shift;
+		let { bits, buffered } = this;
+		if (buffered < maxCodeLength) {
+			const i = this.byteOffset;
+			if (i + 1 < this.bytes.length) {
+				bits |= (this.bytes[i]! | (this.bytes[i + 1]! << 8)) << buffered;
+				buffered += 16;
+				this.byteOffset += 2;
+			} else if (i < this.bytes.length) {
+				bits |= this.bytes[i]! << buffered;
+				buffered += 8;
+				this.byteOffset++;
+			}
+		}
 		const match = prefixes[bits & (prefixes.length - 1)]!;
 		const length = match >> 9;
-		if (length > this.remainingBits) {
+		// Zero-filled lookahead can extend past EOF, but the matching code itself must fit.
+		if (length > buffered) {
+			this.bits = bits;
+			this.buffered = buffered;
 			return -1;
 		}
-		this.bitOffset += length;
+		this.bits = bits >>> length;
+		this.buffered = buffered - length;
 		return match & 0x1ff;
 	}
 
