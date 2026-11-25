@@ -24,7 +24,8 @@ const closureStructs = {
 afterEach(() => vi.restoreAllMocks());
 
 for (const { name, bytes } of fixtures) {
-	describe(name, { concurrent: false }, () => {
+	// CodSpeed simulation can exceed Vitest's default timeout on the large fixture.
+	describe(name, { concurrent: false, timeout: 180_000 }, () => {
 		test('parseHoot', async ({ bench }) => {
 			const parse = () => {
 				for (const _record of parseHoot(bytes)) {
