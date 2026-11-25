@@ -271,26 +271,29 @@ export const hootCanFrames = new Map<number, Frame>([
 	],
 ]);
 
-export function readHootCanField(
-	payload: Uint8Array,
-	[, , bit, width, decode, unsignedOffset]: Field,
-): number | string {
+export function readHootCanField(payload: Uint8Array, field: Field): number | string {
+	const bit = field[2];
+	const width = field[3];
 	const start = bit >> 3;
 	const end = (bit + width - 1) >> 3;
-	let word = 0;
-	for (let i = end; i >= start; i--) {
-		word = word * 256 + payload[i]!;
+	const shift = bit & 7;
+	const padding = 32 - width;
+	// Align the first byte before combining the rest so a 32-bit field can span five bytes.
+	let word = payload[start]! >>> shift;
+	for (let i = start + 1, offset = 8 - shift; i <= end; i++, offset += 8) {
+		word |= payload[i]! << offset;
 	}
-	const range = 2 ** width;
-	const raw = Math.floor(word / (1 << (bit & 7))) % range;
+	const raw = (word & (0xffff_ffff >>> padding)) >>> 0;
+	const decode = field[4];
 	if (typeof decode === 'function') {
 		return decode(raw);
 	}
 	if (typeof decode !== 'number') {
 		return decode[raw] ?? 'Invalid Value';
 	}
+	const unsignedOffset = field[5];
 	if (unsignedOffset !== undefined) {
 		return raw * decode + unsignedOffset;
 	}
-	return (raw >= range / 2 ? raw - range : raw) * decode;
+	return ((raw << padding) >> padding) * decode;
 }

@@ -126,6 +126,7 @@ function* decode(bytes: Uint8Array, progress: { bytesRead: number }): Generator<
 	const previous = new Map<number, Uint8Array>();
 	const custom = new Map<number, CustomSignal>();
 	const networks = new Map<number, string>();
+	const canNames = new Map<number, { path: string; names: string[] }>();
 	const talons = new Map<number, { timestamp: number; resetCount: number }>();
 	const structs = new StructRegistry();
 	progress.bytesRead = headerSize;
@@ -219,13 +220,22 @@ function* decode(bytes: Uint8Array, progress: { bytesRead: number }): Generator<
 			continue;
 		}
 		if (knownCan) {
-			const bus = layout === 2 ? `${networks.get(network) ?? `CAN-${network}`}/` : '';
-			const path = `/Phoenix6/${bus}${frame.device}-${id & 63}`;
-			for (const field of frame.fields) {
+			// Key by bus and the full 29-bit CAN ID, excluding HOOT record flags.
+			const key = network * 2 ** 29 + (id & 0x1fff_ffff);
+			let labels = canNames.get(key);
+			if (!labels) {
+				const bus = layout === 2 ? `${networks.get(network) ?? `CAN-${network}`}/` : '';
+				const path = `/Phoenix6/${bus}${frame.device}-${id & 63}`;
+				labels = { path, names: frame.fields.map(([name]) => `${path}/${name}`) };
+				canNames.set(key, labels);
+			}
+			const { path, names } = labels;
+			for (let i = 0; i < frame.fields.length; i++) {
+				const field = frame.fields[i]!;
 				const value = readHootCanField(payload, field);
 				yield {
 					kind: 'sample',
-					name: `${path}/${field[0]}`,
+					name: names[i]!,
 					type: typeof value === 'string' ? 'string' : 'double',
 					unit: field[1],
 					timestamp,
@@ -261,6 +271,7 @@ function* decode(bytes: Uint8Array, progress: { bytesRead: number }): Generator<
 		if (type === networkType) {
 			if (kind === nameRecord) {
 				networks.set(signalId, text.decode(value));
+				canNames.clear();
 			}
 			continue;
 		}
