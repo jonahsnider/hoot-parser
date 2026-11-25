@@ -1,0 +1,37 @@
+name: Release Please
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  release-please:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Release Please
+        uses: googleapis/release-please-action@v5.0.0
+        id: release
+        with:
+          release-type: node
+      - name: Checkout Git repository
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: actions/checkout@v7.0.1
+      - name: Setup Vite+
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        uses: voidzero-dev/setup-vp@v1.22.0
+        with:
+          cache: true
+          registry-url: 'https://registry.npmjs.org'
+      - name: Lint and test
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: vp check && vp test run
+      - name: Publish to npm
+        if: ${{ steps.release.outputs.release_created == 'true' }}
+        run: pnpm publish --provenance --access public --no-git-checks --publish-wait-timeout 600000

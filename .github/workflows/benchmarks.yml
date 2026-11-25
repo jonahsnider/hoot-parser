@@ -1,0 +1,27 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  benchmarks:
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # required for actions/checkout
+      id-token: write # required for OIDC authentication with CodSpeed
+    steps:
+      - name: Checkout Git repository
+        uses: actions/checkout@v7.0.1
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1.22.0
+        with:
+          node-version: '26.x'
+          cache: true
+      - name: Run benchmarks
+        uses: CodSpeedHQ/action@v5.8.0
+        with:
+          run: vp run bench
+          mode: 'simulation'

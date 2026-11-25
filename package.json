@@ -1,0 +1,58 @@
+{
+	"name": "hoot-parser",
+	"version": "0.1.0",
+	"description": "Read HOOT data log files in TypeScript and JavaScript",
+	"homepage": "https://github.com/jonahsnider/hoot-parser#readme",
+	"license": "MIT",
+	"author": {
+		"name": "Jonah Snider",
+		"email": "jonah@jonahsnider.com",
+		"url": "https://jonahsnider.com"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/jonahsnider/hoot-parser.git"
+	},
+	"files": [
+		"dist"
+	],
+	"type": "module",
+	"exports": {
+		".": "./dist/index.mjs",
+		"./package.json": "./package.json"
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"api:check": "api-extractor run",
+		"api:update": "api-extractor run --local",
+		"bench": "vp run build && vp test bench",
+		"build": "vp pack",
+		"check": "vp check",
+		"dev": "vp pack --watch",
+		"prepare": "vp config",
+		"prepublishOnly": "pnpm build && pnpm api:check",
+		"test": "vp test run"
+	},
+	"dependencies": {
+		"wpilib-struct": "^1.1.0"
+	},
+	"devDependencies": {
+		"@codspeed/vitest-plugin": "6.1.1",
+		"@microsoft/api-extractor": "7.60.1",
+		"@types/node": "26.6.6",
+		"@typescript/native-preview": "7.0.0-dev.20260707.2",
+		"typescript": "7.0.2",
+		"vite-plus": "1.7.0",
+		"vitest": "5.1.0"
+	},
+	"devEngines": {
+		"runtime": {
+			"name": "node",
+			"version": "26.x"
+		}
+	},
+	"packageManager": "pnpm@12.21.0",
+	"tsdocMetadata": "./dist/tsdoc-metadata.json"
+}
