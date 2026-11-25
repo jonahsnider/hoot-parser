@@ -1,0 +1,42 @@
+name: Owlet parity
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  owlet:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Git repository
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Vite+
+        uses: voidzero-dev/setup-vp@v1.22.0
+        with:
+          cache: true
+      - name: Download latest stable Owlet
+        shell: bash
+        run: |
+          base=https://redist.ctr-electronics.com
+          release=$(curl -fsS --retry 3 "$base/index.json" | jq -er '
+            [.Tools[] | select(.Name == "owlet") | .Items[]
+              | select(.Version | test("^[0-9]+(\\.[0-9]+)+$"))
+              | select(.Urls["linuxx86-64"])]
+            | max_by(.Version | split(".") | map(tonumber)) // error("No stable Owlet Linux x64 release found")
+            | [.Version, .Urls["linuxx86-64-sha1"]] | @tsv')
+          read -r version checksum <<< "$release"
+          owlet="$RUNNER_TEMP/owlet"
+          curl -fsS --retry 3 "$base/tools/owlet/$version/owlet-$version-linuxx86-64" -o "$owlet"
+          printf '%s  %s\n' "$checksum" "$owlet" | sha1sum --check --strict
+          chmod +x "$owlet"
+          "$owlet" --version
+      - name: Compare Owlet export with the parser
+        run: OWLET_BIN="$RUNNER_TEMP/owlet" vp test run tests/owlet-parity.test.ts

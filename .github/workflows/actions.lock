@@ -14,6 +14,9 @@ workflows:
     '.github/workflows/ci.yml':
         - 'actions/checkout@v7.0.1'
         - 'voidzero-dev/setup-vp@v1.22.0'
+    '.github/workflows/owlet.yml':
+        - 'actions/checkout@v7.0.1'
+        - 'voidzero-dev/setup-vp@v1.22.0'
     '.github/workflows/release-please.yml':
         - 'actions/checkout@v7.0.1'
         - 'googleapis/release-please-action@v5.0.0'

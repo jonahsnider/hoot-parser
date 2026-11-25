@@ -5,6 +5,8 @@ import { type HootRecord, parseHoot } from '../src/index.ts';
 // Simulator captures, not robot logs. Expected timestamps and samples were checked against independent exports.
 const c19 = readFileSync(new URL('./fixtures/hoot-c19.hoot', import.meta.url));
 const c21 = readFileSync(new URL('./fixtures/hoot-c21.hoot', import.meta.url));
+// C21 capture with injected PID, fault and Startup frames, checked against Owlet 26.70.0.
+const talonProbe = readFileSync(new URL('./fixtures/hoot-c21-talon-probe.hoot', import.meta.url));
 
 function samples(records: HootRecord[], name: string) {
 	return records.filter((record) => record.kind === 'sample').filter((record) => record.name === name);
@@ -54,6 +56,39 @@ test('reads C21 CAN telemetry under its bus name alongside custom entries', () =
 		['abcd', 'α'],
 	]);
 	expect(samples(parsed, 'voltage')[0]?.unit).toBe('V');
+});
+
+test('decodes signed PID values and separates active and sticky TalonFX fault bits', () => {
+	const parsed = [...parseHoot(talonProbe)];
+	const at = (timestamp: number, signal: string) =>
+		samples(parsed, `/Phoenix6/sim/TalonFX-9/${signal}`).find((sample) => sample.timestamp === timestamp)?.payload;
+
+	expect(at(2_180_909, 'PIDTorqueCurrent_FeedForward')).toBe(-8.6);
+	expect(at(2_180_909, 'PIDPosition_Reference')).toBe(10_000);
+	expect(at(2_180_909, 'PIDVelocity_ClosedLoopError')).toBe(-2.75);
+	expect(at(2_180_909, 'ControlMode')).toBe('MotionMagicExpoVoltage');
+	expect(at(2_190_909, 'FaultField')).toBe(0x8200_0201);
+	expect(at(2_190_909, 'StickyFaultField')).toBe(0x0401_0004);
+	expect(at(2_190_909, 'Fault_RotorFault1')).toBe(1);
+	expect(at(2_190_909, 'StickyFault_RotorFault1')).toBe(0);
+	expect(at(2_190_909, 'Fault_RotorFault2')).toBe(0);
+	expect(at(2_190_909, 'StickyFault_RotorFault2')).toBe(1);
+});
+
+test('counts TalonFX Startup frames only after discovery and separately on each bus', () => {
+	const parsed = [...parseHoot(talonProbe)];
+	const resets = (bus: string) =>
+		samples(parsed, `/Phoenix6/${bus}/TalonFX-9/ResetCount`).map(({ timestamp, payload }) => [timestamp, payload]);
+
+	expect(resets('sim')).toEqual([
+		[131_005, 0],
+		[131_100, 1],
+		[131_400, 2],
+	]);
+	expect(resets('aux')).toEqual([
+		[131_200, 0],
+		[131_300, 1],
+	]);
 });
 
 test('registers nested struct schemas and decodes a changing-length struct array', () => {

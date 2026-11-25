@@ -25,6 +25,7 @@ const schemaRecord = 0xe3;
 const schemaType = 11;
 const structType = 12;
 const networkType = 13;
+const talonStartupId = 0x0204_1c80;
 
 export type HootValue = number | boolean | string | number[] | boolean[] | string[] | StructPayload | StructPayload[];
 
@@ -125,6 +126,7 @@ function* decode(bytes: Uint8Array, progress: { bytesRead: number }): Generator<
 	const previous = new Map<number, Uint8Array>();
 	const custom = new Map<number, CustomSignal>();
 	const networks = new Map<number, string>();
+	const talons = new Map<number, { timestamp: number; resetCount: number }>();
 	const structs = new StructRegistry();
 	progress.bytesRead = headerSize;
 
@@ -162,8 +164,10 @@ function* decode(bytes: Uint8Array, progress: { bytesRead: number }): Generator<
 			break;
 		}
 
-		const frame = hootCanFrames.get(id & 0x1fff_ffc0);
+		const frameId = id & 0x1fff_ffc0;
+		const frame = hootCanFrames.get(frameId);
 		const knownCan = kind < valueRecord && frame?.length === length;
+		const talonStartup = kind < valueRecord && frameId === talonStartupId;
 		const knownCustom =
 			kind >= valueRecord && kind <= schemaRecord && type > 0 && type <= networkType && exactLength <= length;
 		let payload: Uint8Array | undefined;
@@ -193,23 +197,62 @@ function* decode(bytes: Uint8Array, progress: { bytesRead: number }): Generator<
 			break;
 		}
 		progress.bytesRead = Math.ceil(reader.bitOffset / 8);
+
+		const timestamp = view.getUint32(4, true) + (flags & 0x7ff) * 2 ** 32 + 1;
+		if (talonStartup) {
+			// Startup frames only count after the device has been seen sending telemetry.
+			const talon = talons.get((network << 6) | (id & 63));
+			if (talon) {
+				const bus = layout === 2 ? `${networks.get(network) ?? `CAN-${network}`}/` : '';
+				yield {
+					kind: 'sample',
+					name: `/Phoenix6/${bus}TalonFX-${id & 63}/ResetCount`,
+					type: 'int64',
+					unit: undefined,
+					timestamp,
+					payload: ++talon.resetCount,
+				};
+			}
+			continue;
+		}
 		if (!payload) {
 			continue;
 		}
-
-		const timestamp = view.getUint32(4, true) + (flags & 0x7ff) * 2 ** 32 + 1;
 		if (knownCan) {
 			const bus = layout === 2 ? `${networks.get(network) ?? `CAN-${network}`}/` : '';
 			const path = `/Phoenix6/${bus}${frame.device}-${id & 63}`;
 			for (const field of frame.fields) {
+				const value = readHootCanField(payload, field);
 				yield {
 					kind: 'sample',
 					name: `${path}/${field[0]}`,
-					type: 'double',
+					type: typeof value === 'string' ? 'string' : 'double',
 					unit: field[1],
 					timestamp,
-					payload: readHootCanField(payload, field),
+					payload: value,
 				};
+			}
+			if (frame.device === 'TalonFX') {
+				const deviceKey = (network << 6) | (id & 63);
+				const talon = talons.get(deviceKey);
+				if (!talon || timestamp > talon.timestamp) {
+					if (talon) {
+						talon.timestamp = timestamp;
+					} else {
+						talons.set(deviceKey, { timestamp, resetCount: 0 });
+					}
+					yield {
+						kind: 'sample',
+						name: `${path}/Timestamp`,
+						type: 'double',
+						unit: 's',
+						timestamp,
+						payload: timestamp / 1e6,
+					};
+				}
+				if (!talon) {
+					yield { kind: 'sample', name: `${path}/ResetCount`, type: 'int64', unit: undefined, timestamp, payload: 0 };
+				}
 			}
 			continue;
 		}
