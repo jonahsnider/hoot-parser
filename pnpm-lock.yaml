@@ -191,7 +191,7 @@ importers:
     dependencies:
       wpilib-struct:
         specifier: ^1.1.0
-        version: 1.1.0
+        version: 1.1.1
     devDependencies:
       '@codspeed/vitest-plugin':
         specifier: 6.1.1
@@ -1651,9 +1651,6 @@ packages:
   wpilib-protobuf@1.0.1:
     resolution: {integrity: sha512-QCBotK3HwNab2sl0jQbZJYV/HyxbfVlSaU94ANFGLHqnX4Tx9Ksk6sNaTn8qbcY4lymi8cr+4GERUC+5UVxuIg==}
 
-  wpilib-struct@1.1.0:
-    resolution: {integrity: sha512-gTmtqlNR1EEiktiEklFHjxpnWisyGbxerCh9JyR4cqpXCPchX+G+mzIRJo5DWnAbo2MMwKoxFAC8mvcXBhffKQ==}
-
   wpilib-struct@1.1.1:
     resolution: {integrity: sha512-8E3FEJgqp9221XV5UUlx4Gy/ci4o2Hcr/kmC+CiXjcltwg9YACwbKqT7rq7qn75BjHr01oIBWOaeAtRVRYEEcg==}
 
@@ -2785,8 +2782,6 @@ snapshots:
   wpilib-protobuf@1.0.1:
     dependencies:
       '@bufbuild/protobuf': 2.17.0
-
-  wpilib-struct@1.1.0: {}
 
   wpilib-struct@1.1.1: {}
 
