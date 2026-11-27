@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.0.0](https://github.com/jonahsnider/hoot-parser/compare/v1.1.0...v2.0.0) (2026-11-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* C19 device signals are named `/Phoenix6/<bus>/<device>/<signal>`, ex. `/Phoenix6/rio/TalonFX-16/Velocity` instead of `/Phoenix6/TalonFX-16/Velocity`.
+
+### Features
+
+* name C19 device signals by their CAN bus ([2df8e09](https://github.com/jonahsnider/hoot-parser/commit/2df8e09a47860124c20b33072185f3299a12da01))
+
 ## [1.1.0](https://github.com/jonahsnider/hoot-parser/compare/v1.0.0...v1.1.0) (2026-11-25)
 
 
