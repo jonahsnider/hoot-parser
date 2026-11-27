@@ -3,6 +3,11 @@ import { hootCanFrames, readHootCanField } from './hoot-can.ts';
 import { HootBitReader, hootEndOfStream } from './hoot-compression.ts';
 
 const headerSize = 80;
+// C19 files are each from one bus, named by the first 64 bytes of the header
+const c19BusNames = new Map([
+	['roboRIO Native CAN Bus', 'rio'],
+	['Simulation', 'sim'],
+]);
 const canLengths = [0, 1, 2, 3, 4, 5, 6, 7, 8, 12, 16, 20, 24, 32, 48, 64];
 const text = new TextDecoder();
 const valueTypes = [
@@ -129,6 +134,9 @@ function* decode(bytes: Uint8Array, progress: { bytesRead: number }): Generator<
 	const canNames = new Map<number, { path: string; names: string[] }>();
 	const talons = new Map<number, { timestamp: number; resetCount: number }>();
 	const structs = new StructRegistry();
+	const headerName = text.decode(bytes.subarray(0, 64)).replace(/\0.*$/su, '');
+	const c19Bus = c19BusNames.get(headerName) ?? headerName;
+	const busName = (network: number) => (layout === 2 ? (networks.get(network) ?? `CAN-${network}`) : c19Bus);
 	progress.bytesRead = headerSize;
 
 	for (;;) {
@@ -204,10 +212,9 @@ function* decode(bytes: Uint8Array, progress: { bytesRead: number }): Generator<
 			// Startup frames only count after the device has been seen sending telemetry.
 			const talon = talons.get((network << 6) | (id & 63));
 			if (talon) {
-				const bus = layout === 2 ? `${networks.get(network) ?? `CAN-${network}`}/` : '';
 				yield {
 					kind: 'sample',
-					name: `/Phoenix6/${bus}TalonFX-${id & 63}/ResetCount`,
+					name: `/Phoenix6/${busName(network)}/TalonFX-${id & 63}/ResetCount`,
 					type: 'int64',
 					unit: undefined,
 					timestamp,
@@ -224,8 +231,7 @@ function* decode(bytes: Uint8Array, progress: { bytesRead: number }): Generator<
 			const key = network * 2 ** 29 + (id & 0x1fff_ffff);
 			let labels = canNames.get(key);
 			if (!labels) {
-				const bus = layout === 2 ? `${networks.get(network) ?? `CAN-${network}`}/` : '';
-				const path = `/Phoenix6/${bus}${frame.device}-${id & 63}`;
+				const path = `/Phoenix6/${busName(network)}/${frame.device}-${id & 63}`;
 				labels = { path, names: frame.fields.map(([name]) => `${path}/${name}`) };
 				canNames.set(key, labels);
 			}

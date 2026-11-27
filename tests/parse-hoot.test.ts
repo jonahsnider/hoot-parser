@@ -5,6 +5,8 @@ import { type HootRecord, parseHoot } from '../src/index.ts';
 // Simulator captures, not robot logs. Expected timestamps and samples were checked against independent exports.
 const c19 = readFileSync(new URL('./fixtures/hoot-c19.hoot', import.meta.url));
 const c21 = readFileSync(new URL('./fixtures/hoot-c21.hoot', import.meta.url));
+// The start of a roboRIO log from a match, cut off mid-record
+const c19Rio = readFileSync(new URL('./fixtures/hoot-c19-rio.hoot', import.meta.url));
 // C21 capture with injected PID, fault and Startup frames, checked against Owlet 26.70.0.
 const talonProbe = readFileSync(new URL('./fixtures/hoot-c21-talon-probe.hoot', import.meta.url));
 
@@ -56,6 +58,22 @@ test('reads C21 CAN telemetry under its bus name alongside custom entries', () =
 		['abcd', 'α'],
 	]);
 	expect(samples(parsed, 'voltage')[0]?.unit).toBe('V');
+});
+
+test('names C19 CAN telemetry by the bus in the header', () => {
+	const busNames = (bytes: Uint8Array) =>
+		new Set(
+			[...parseHoot(bytes)]
+				.filter((record) => record.kind === 'sample' && record.name.startsWith('/Phoenix6/'))
+				.map((record) => record.name.split('/')[2]),
+		);
+	expect(busNames(c19Rio)).toEqual(new Set(['rio']));
+	expect(samples([...parseHoot(c19Rio)], '/Phoenix6/rio/TalonFX-16/Velocity').length).toBeGreaterThan(0);
+
+	const canivore = Uint8Array.from(c19Rio);
+	canivore.fill(0, 0, 64);
+	canivore.set(new TextEncoder().encode('581CANivore'));
+	expect(busNames(canivore)).toEqual(new Set(['581CANivore']));
 });
 
 test('decodes signed PID values and separates active and sticky TalonFX fault bits', () => {

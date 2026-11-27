@@ -22,6 +22,6 @@ function readFile(bytes: ArrayBuffer) {
 
 The generator yields records in file order, not necessarily in timestamp order. Timestamps are in microseconds. Custom signal names are kept as recorded, and struct schema records contain parsed fields. If a file ends mid-record, the generator yields the complete records and leaves `bytesRead` at the end of the last complete record.
 
-The parser supports C19 and C21 logs, including custom signals and selected TalonFX, CANcoder, and Pigeon2 telemetry. It skips signals whose layout it doesn't recognize. Custom `int64` values are returned as JavaScript numbers and may lose precision above `Number.MAX_SAFE_INTEGER`.
+The parser supports C19 and C21 logs, including custom signals and selected TalonFX, CANcoder, and Pigeon2 telemetry. It skips signals whose layout it doesn't recognize. Device signals are named by CAN bus, model, and ID, ex. `/Phoenix6/rio/TalonFX-16/Velocity`. C19 logs have one file per bus, so they use the bus named in the file's header, with `rio` for the roboRIO's bus. Custom `int64` values are returned as JavaScript numbers and may lose precision above `Number.MAX_SAFE_INTEGER`.
 
 See the [API report](etc/hoot-parser.api.md) for the exported types.
